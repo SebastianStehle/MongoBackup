@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: run-mongodb-backup
+spec:
+  template:
+    spec:
+      volumes:
+      - name: k8user-key
+        secret:
+          secretName: k8user-key
+      containers:
+        - name: mongodb-backup
+          image: sebastianstehle/mongodb-backup
+          imagePullPolicy: Always
+          env:
+            - name: MONGODB__URI
+              value: <MY_MONGODB_SERVER>
+            - name: GOOGLESTORAGE__BUCKETNAME
+              value: <MY_BACKUP>
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+          volumeMounts:
+          - name: k8user-key
+            mountPath: /var/secrets/google
+      restartPolicy: Never
+  backoffLimit: 4

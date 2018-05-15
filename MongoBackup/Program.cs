@@ -6,89 +6,80 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Threading;
 
 namespace MongoBackup
 {
     public sealed class Program
     {
-        public sealed class MongoDbOptions
+        public static int Main(string[] args)
         {
-            public string Uri { get; set; } = "mongodb://localhost:27017";
-
-            public string DumpBinaryPath { get; set; }
-        }
-
-        public sealed class GoogleStorageOptions
-        {
-            public string BucketName { get; set; }
-        }
-
-        public sealed class BackupOptions
-        {
-            public string FileName { get; set; } = "backup-{0:yyyy-MM-dd-hh-mm-ss}";
-        }
-
-        public sealed class RootOptions
-        {
-            public MongoDbOptions MongoDb { get; } = new MongoDbOptions();
-
-            public BackupOptions Backup { get; } = new BackupOptions();
-
-            public GoogleStorageOptions GoogleStorage { get; } = new GoogleStorageOptions();
-        }
-
-        public static void Main(string[] args)
-        {
-            var options = ConfigureOptions(args);
-
             var services =
                 new ServiceCollection()
                     .AddLogging(builder =>
                     {
-                        builder.AddConsole();
+                        builder.AddProvider(new SimpleLogProvider());
                     })
                     .BuildServiceProvider();
 
-            var logger = services.GetRequiredService<ILogger<Program>>();
-
-            logger.LogInformation("Backup Mongodb {{Uri={}}} started", options.MongoDb.Uri);
-
-            var file = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
-
-            try
+            using (services)
             {
-                if (!DumpDatabases(services, options, file))
+                var logger = services.GetRequiredService<ILogger<Program>>();
+
+                var options = ConfigureOptions(args, logger);
+
+                if (options == null)
                 {
-                    return;
+                    return 2;
                 }
 
-                var fileName = string.Format(CultureInfo.InvariantCulture, options.Backup.FileName, DateTime.UtcNow);
+                logger.LogInformation("Backup Mongodb {{Uri={}}} started", options.MongoDb.Uri);
 
-                var storageClient = StorageClient.Create();
+                var file = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
 
-                using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read))
+                try
                 {
-                    storageClient.UploadObject(options.GoogleStorage.BucketName, fileName, "text/plain", fs);
-                }
+                    if (!DumpDatabases(services, options, file))
+                    {
+                        return 2;
+                    }
 
-                logger.LogInformation("Backup Mongodb {{Uri={}}} completed", options.MongoDb.Uri);
-            }
-            catch (Exception ex)
-            {
-                logger.LogInformation(ex, "Backup Mongodb {{Uri={}}} failed", options.MongoDb.Uri);
-            }
-            finally
-            {
-                if (File.Exists(file))
+                    var fileName = string.Format(CultureInfo.InvariantCulture, options.Backup.FileName, DateTime.UtcNow);
+
+                    logger.LogInformation("Uploading archive to {}/{}", options.GoogleStorage.BucketName, fileName);
+
+                    var storageClient = StorageClient.Create();
+
+                    using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read))
+                    {
+                        storageClient.UploadObject(options.GoogleStorage.BucketName, fileName, "text/plain", fs);
+                    }
+
+                    logger.LogInformation("Backup Mongodb {{Uri={}}} completed", options.MongoDb.Uri);
+                }
+                catch (Exception ex)
                 {
-                    File.Delete(file);
+                    logger.LogCritical(ex, "Backup Mongodb {{Uri={}}} failed", options.MongoDb.Uri);
+
+                    return 2;
+                }
+                finally
+                {
+                    services.Dispose();
+
+                    if (File.Exists(file))
+                    {
+                        File.Delete(file);
+                    }
                 }
             }
+
+            return 0;
         }
 
-        private static RootOptions ConfigureOptions(string[] args)
+        private static Options ConfigureOptions(string[] args, ILogger<Program> logger)
         {
-            var options = new RootOptions();
+            var options = new Options();
 
             var configuration =
                 new ConfigurationBuilder()
@@ -98,14 +89,34 @@ namespace MongoBackup
 
             configuration.Bind(options);
 
-            return options;
+            var errors = options.Validate();
+
+            if (errors.Count > 0)
+            {
+                logger.LogCritical("Options are not valid: {}", string.Join(',', errors));
+
+                return null;
+            }
+            else
+            {
+                return options;
+            }
         }
 
-        private static bool DumpDatabases(IServiceProvider services, RootOptions options, string file)
+        private static bool DumpDatabases(IServiceProvider services, Options options, string file)
         {
-            var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Mongodump");
+            var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(".\\mongodump");
 
             var process = new Process();
+            var processNotConnected = false;
+
+            var connectTimer = new Timer(x =>
+            {
+                processNotConnected = true;
+                process.Kill();
+            });
+
+            connectTimer.Change(1000, 0);
 
             process.StartInfo.Arguments = $" --archive=\"{file}\" --gzip --uri=\"{options.MongoDb.Uri}\"";
             process.StartInfo.FileName = options.MongoDb.DumpBinaryPath;
@@ -117,6 +128,8 @@ namespace MongoBackup
             {
                 if (e.Data != null)
                 {
+                    connectTimer.Change(Timeout.Infinite, Timeout.Infinite);
+
                     logger.LogInformation(e.Data.Substring(29));
                 }
             };
@@ -124,6 +137,8 @@ namespace MongoBackup
             {
                 if (e.Data != null)
                 {
+                    connectTimer.Change(Timeout.Infinite, Timeout.Infinite);
+
                     logger.LogInformation(e.Data.Substring(29));
                 }
             };
@@ -135,11 +150,15 @@ namespace MongoBackup
 
             var exit = process.ExitCode;
 
-            var isSucceess = exit == 0;
+            var isSucceess = !processNotConnected || exit == 0;
 
-            if (!isSucceess)
+            if (processNotConnected)
             {
-                logger.LogCritical("Mongodump failed with status code {}", exit);
+                logger.LogCritical("Mongodump could not establish connection to database within 10 sec. Exit code: {}", exit);
+            }
+            else if (!isSucceess)
+            {
+                logger.LogCritical("Mongodump failed with exit code {}", exit);
             }
             else
             {

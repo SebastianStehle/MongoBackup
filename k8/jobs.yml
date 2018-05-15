@@ -1,0 +1,29 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: mongodb-backup
+spec:
+  schedule: "* 1 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          volumes:
+          - name: k8user-key
+            secret:
+              secretName: k8user-key
+          containers:
+            - name: mongodb-backup
+              image: sebastianstehle/mongodb-backup
+              imagePullPolicy: Always
+              env:
+                - name: MONGODB__URI
+                  value: <MY_MONGODB_SERVER>
+                - name: GOOGLESTORAGE__BUCKETNAME
+                  value: <MY_BACKUP>
+                - name: GOOGLE_APPLICATION_CREDENTIALS
+                  value: /var/secrets/google/key.json
+              volumeMounts:
+              - name: k8user-key
+                mountPath: /var/secrets/google
+          restartPolicy: Never
