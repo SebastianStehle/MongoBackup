@@ -24,4 +24,3 @@ spec:
           - name: k8user-key
             mountPath: /var/secrets/google
       restartPolicy: Never
-  backoffLimit: 4
