@@ -12,6 +12,8 @@ namespace MongoBackup
 {
     public sealed class Program
     {
+        private const int ConnectionTimeout = 10000;
+
         public static int Main(string[] args)
         {
             var services =
@@ -116,7 +118,7 @@ namespace MongoBackup
                 process.Kill();
             });
 
-            connectTimer.Change(1000, 0);
+            connectTimer.Change(ConnectionTimeout, 0);
 
             process.StartInfo.Arguments = $" --archive=\"{file}\" --gzip --uri=\"{options.MongoDb.Uri}\"";
             process.StartInfo.FileName = options.MongoDb.DumpBinaryPath;
@@ -154,7 +156,7 @@ namespace MongoBackup
 
             if (processNotConnected)
             {
-                logger.LogCritical("Mongodump could not establish connection to database within 10 sec. Exit code: {}", exit);
+                logger.LogCritical("Mongodump could not establish connection to database within {} ms. Exit code: {}", ConnectionTimeout, exit);
             }
             else if (!isSucceess)
             {
