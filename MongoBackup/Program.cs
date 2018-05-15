@@ -52,7 +52,7 @@ namespace MongoBackup
 
                     using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read))
                     {
-                        storageClient.UploadObject(options.GoogleStorage.BucketName, fileName, "text/plain", fs);
+                        storageClient.UploadObject(options.GoogleStorage.BucketName, fileName, "application/x-gzip", fs);
                     }
 
                     logger.LogInformation("Backup Mongodb {{Uri={}}} completed", options.MongoDb.Uri);
