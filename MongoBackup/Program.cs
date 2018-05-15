@@ -11,15 +11,30 @@ namespace MongoBackup
 {
     public sealed class Program
     {
-        public sealed class Options
+        public sealed class MongoDbOptions
         {
             public string Uri { get; set; } = "mongodb://localhost:27017";
 
+            public string DumpBinaryPath { get; set; }
+        }
+
+        public sealed class GoogleStorageOptions
+        {
+            public string BucketName { get; set; }
+        }
+
+        public sealed class BackupOptions
+        {
             public string FileName { get; set; } = "backup-{0:yyyy-MM-dd-hh-mm-ss}";
+        }
 
-            public string BucketName { get; set; } = "mongodb-backups123";
+        public sealed class RootOptions
+        {
+            public MongoDbOptions MongoDb { get; } = new MongoDbOptions();
 
-            public string BinaryPath { get; set; } = "mongodump.exe";
+            public BackupOptions Backup { get; } = new BackupOptions();
+
+            public GoogleStorageOptions GoogleStorage { get; } = new GoogleStorageOptions();
         }
 
         public static void Main(string[] args)
@@ -36,7 +51,7 @@ namespace MongoBackup
 
             var logger = services.GetRequiredService<ILogger<Program>>();
 
-            logger.LogInformation("Backup Mongodb {{Uri={}}} started", options.Uri);
+            logger.LogInformation("Backup Mongodb {{Uri={}}} started", options.MongoDb.Uri);
 
             var file = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
 
@@ -47,20 +62,20 @@ namespace MongoBackup
                     return;
                 }
 
-                var fileName = string.Format(CultureInfo.InvariantCulture, options.FileName, DateTime.UtcNow);
+                var fileName = string.Format(CultureInfo.InvariantCulture, options.Backup.FileName, DateTime.UtcNow);
 
                 var storageClient = StorageClient.Create();
 
                 using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read))
                 {
-                    storageClient.UploadObject(options.BucketName, fileName, "text/plain", fs);
+                    storageClient.UploadObject(options.GoogleStorage.BucketName, fileName, "text/plain", fs);
                 }
 
-                logger.LogInformation("Backup Mongodb {{Uri={}}} completed", options.Uri);
+                logger.LogInformation("Backup Mongodb {{Uri={}}} completed", options.MongoDb.Uri);
             }
             catch (Exception ex)
             {
-                logger.LogInformation(ex, "Backup Mongodb {{Uri={}}} failed", options.Uri);
+                logger.LogInformation(ex, "Backup Mongodb {{Uri={}}} failed", options.MongoDb.Uri);
             }
             finally
             {
@@ -71,9 +86,9 @@ namespace MongoBackup
             }
         }
 
-        private static Options ConfigureOptions(string[] args)
+        private static RootOptions ConfigureOptions(string[] args)
         {
-            var options = new Options();
+            var options = new RootOptions();
 
             var configuration =
                 new ConfigurationBuilder()
@@ -81,19 +96,19 @@ namespace MongoBackup
                     .AddCommandLine(args)
                     .Build();
 
-            configuration.GetSection("app").Bind(options);
+            configuration.Bind(options);
 
             return options;
         }
 
-        private static bool DumpDatabases(IServiceProvider services, Options options, string file)
+        private static bool DumpDatabases(IServiceProvider services, RootOptions options, string file)
         {
             var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Mongodump");
 
             var process = new Process();
 
-            process.StartInfo.Arguments = $" --archive=\"{file}\" --gzip --uri=\"{options.Uri}\"";
-            process.StartInfo.FileName = options.BinaryPath;
+            process.StartInfo.Arguments = $" --archive=\"{file}\" --gzip --uri=\"{options.MongoDb.Uri}\"";
+            process.StartInfo.FileName = options.MongoDb.DumpBinaryPath;
             process.StartInfo.RedirectStandardError = true;
             process.StartInfo.RedirectStandardOutput = true;
             process.StartInfo.UseShellExecute = false;
