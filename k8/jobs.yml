@@ -20,7 +20,7 @@ spec:
                 - name: MONGODB__URI
                   value: <MY_MONGODB_SERVER>
                 - name: GOOGLESTORAGE__BUCKETNAME
-                  value: <MY_BACKUP>
+                  value: <MY_BUCKET>
                 - name: GOOGLE_APPLICATION_CREDENTIALS
                   value: /var/secrets/google/key.json
               volumeMounts:
