@@ -1,8 +1,10 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Google.Cloud.Storage.V1;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 
 namespace MongoBackup
@@ -13,9 +15,9 @@ namespace MongoBackup
         {
             public string Uri { get; set; } = "mongodb://localhost:27017";
 
-            public string FileName { get; set; } = "backup";
+            public string FileName { get; set; } = "backup-{0:yyyy-MM-dd-hh-mm-ss}";
 
-            public string BucketName { get; set; }
+            public string BucketName { get; set; } = "mongodb-backups123";
 
             public string BinaryPath { get; set; } = "mongodump.exe";
         }
@@ -44,6 +46,21 @@ namespace MongoBackup
                 {
                     return;
                 }
+
+                var fileName = string.Format(CultureInfo.InvariantCulture, options.FileName, DateTime.UtcNow);
+
+                var storageClient = StorageClient.Create();
+
+                using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read))
+                {
+                    storageClient.UploadObject(options.BucketName, fileName, "text/plain", fs);
+                }
+
+                logger.LogInformation("Backup Mongodb {{Uri={}}} completed", options.Uri);
+            }
+            catch (Exception ex)
+            {
+                logger.LogInformation(ex, "Backup Mongodb {{Uri={}}} failed", options.Uri);
             }
             finally
             {
@@ -52,8 +69,6 @@ namespace MongoBackup
                     File.Delete(file);
                 }
             }
-
-            logger.LogInformation("Backup Mongodb {{Uri={}}} completed", options.Uri);
         }
 
         private static Options ConfigureOptions(string[] args)
