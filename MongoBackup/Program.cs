@@ -3,9 +3,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading;
 
 namespace MongoBackup
@@ -132,7 +134,17 @@ namespace MongoBackup
                 {
                     connectTimer.Change(Timeout.Infinite, Timeout.Infinite);
 
-                    logger.LogInformation(e.Data.Substring(29));
+                    IEnumerable<string> parts = e.Data.Split('\t');
+
+                    if (parts.Count() > 1)
+                    {
+                        parts = parts.Skip(1);
+                    }
+
+                    foreach (var part in parts)
+                    {
+                        logger.LogError(part);
+                    }
                 }
             };
             process.OutputDataReceived += (sender, e) =>
@@ -141,7 +153,17 @@ namespace MongoBackup
                 {
                     connectTimer.Change(Timeout.Infinite, Timeout.Infinite);
 
-                    logger.LogInformation(e.Data.Substring(29));
+                    IEnumerable<string> parts = e.Data.Split('\t');
+
+                    if (parts.Count() > 1)
+                    {
+                        parts = parts.Skip(1);
+                    }
+
+                    foreach (var part in parts)
+                    {
+                        logger.LogInformation(part);
+                    }
                 }
             };
 
