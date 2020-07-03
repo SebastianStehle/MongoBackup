@@ -112,11 +112,11 @@ namespace MongoBackup
             var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(".\\mongodump");
 
             var process = new Process();
-            var processNotConnected = false;
+            var processConnected = true;
 
             var connectTimer = new Timer(x =>
             {
-                processNotConnected = true;
+                processConnected = false;
                 process.Kill();
             });
 
@@ -143,7 +143,7 @@ namespace MongoBackup
 
                     foreach (var part in parts)
                     {
-                        logger.LogError(part);
+                        logger.LogInformation(part);
                     }
                 }
             };
@@ -174,9 +174,9 @@ namespace MongoBackup
 
             var exit = process.ExitCode;
 
-            var isSucceess = !processNotConnected || exit == 0;
+            var isSucceess = processConnected && exit == 0;
 
-            if (processNotConnected)
+            if (!processConnected)
             {
                 logger.LogCritical("Mongodump could not establish connection to database within {} ms. Exit code: {}", ConnectionTimeout, exit);
             }

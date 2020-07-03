@@ -10,7 +10,7 @@ namespace MongoBackup
         {
             public string Uri { get; set; } = "mongodb://localhost:27017";
 
-            public string DumpBinaryPath { get; set; }
+            public string DumpBinaryPath { get; set; } = "mongodump.exe";
 
             public void Validate(ICollection<string> errors)
             {
@@ -28,7 +28,7 @@ namespace MongoBackup
 
         public sealed class GoogleStorageOptions
         {
-            public string BucketName { get; set; }
+            public string BucketName { get; set; } = "my";
 
             public void Validate(ICollection<string> errors)
             {
@@ -41,7 +41,7 @@ namespace MongoBackup
 
         public sealed class BackupOptions
         {
-            public string FileName { get; set; } = "backup-{0:yyyy-MM-dd-hh-mm-ss}.gzip";
+            public string FileName { get; set; } = "backup-{0:yyyy-MM-dd-hh-mm-ss}.agz";
 
             public void Validate(ICollection<string> errors)
             {
@@ -62,11 +62,20 @@ namespace MongoBackup
         {
             var errors = new List<string>();
 
-            MongoDb.Validate(errors);
+            if (MongoDb != null)
+            {
+                MongoDb.Validate(errors);
+            }
 
-            Backup.Validate(errors);
+            if (Backup != null)
+            {
+                Backup.Validate(errors);
+            }
 
-            GoogleStorage.Validate(errors);
+            if (GoogleStorage != null)
+            {
+                GoogleStorage.Validate(errors);
+            }
 
             return errors;
         }
