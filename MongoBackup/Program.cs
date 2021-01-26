@@ -1,4 +1,5 @@
 ﻿using Google.Cloud.Storage.V1;
+using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -58,6 +59,17 @@ namespace MongoBackup
                     {
                         storageClient.UploadObject(options.GoogleStorage.BucketName, fileName, "application/x-gzip", fs);
                     }
+
+                    // Azure Blob Storage
+                    //var connectionString = options.AzureStorage.ConnectionString;
+                    //var blobService = options.AzureStorage.BlobService;
+                    //var container = options.AzureStorage.Container;
+
+                    //logger.LogInformation("Uploading archive to {}{}/{}", blobService, container, fileName);
+
+                    //BlobContainerClient containerClient = new BlobContainerClient(connectionString, container);
+                    //BlobClient blobClient = containerClient.GetBlobClient(fileName);
+                    //blobClient.Upload(file);
 
                     logger.LogInformation("Backup Mongodb {{Uri={}}} completed", options.MongoDb.Uri);
                 }
