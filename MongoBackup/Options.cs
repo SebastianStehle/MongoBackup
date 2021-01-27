@@ -39,6 +39,31 @@ namespace MongoBackup
             }
         }
 
+        public sealed class AzureStorageOptions
+        {
+            public string ConnectionString { get; set; } = "DefaultEndpointsProtocol=my-connection-string";
+            public string BlobService { get; set; } = "https://mystorageaccount.blob.core.windows.net/";
+            public string Container { get; set; } = "my-container";
+
+            public void Validate(ICollection<string> errors)
+            {
+                if (string.IsNullOrWhiteSpace(ConnectionString))
+                {
+                    errors.Add("ConnectionString has not been defined");
+                }
+
+                if (string.IsNullOrWhiteSpace(BlobService))
+                {
+                    errors.Add("BlobService has not been defined");
+                }
+
+                if (string.IsNullOrWhiteSpace(Container))
+                {
+                    errors.Add("Container has not been defined");
+                }
+            }
+        }
+
         public sealed class BackupOptions
         {
             public string FileName { get; set; } = "backup-{0:yyyy-MM-dd-hh-mm-ss}.agz";
@@ -58,6 +83,8 @@ namespace MongoBackup
 
         public GoogleStorageOptions GoogleStorage { get; } = new GoogleStorageOptions();
 
+        public AzureStorageOptions AzureStorage { get; } = new AzureStorageOptions();
+
         public ICollection<string> Validate()
         {
             var errors = new List<string>();
@@ -75,6 +102,11 @@ namespace MongoBackup
             if (GoogleStorage != null)
             {
                 GoogleStorage.Validate(errors);
+            }
+
+            if (AzureStorage != null)
+            {
+                AzureStorage.Validate(errors);
             }
 
             return errors;
