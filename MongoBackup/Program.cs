@@ -10,6 +10,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using Squidex.Assets;
+using System.Threading.Tasks;
+using System.IO.Compression;
 
 namespace MongoBackup
 {
@@ -17,7 +20,7 @@ namespace MongoBackup
     {
         private const int ConnectionTimeout = 10000;
 
-        public static int Main(string[] args)
+        public static async Task<int> Main(string[] args)
         {
             var services =
                 new ServiceCollection()
@@ -51,25 +54,23 @@ namespace MongoBackup
 
                     var fileName = string.Format(CultureInfo.InvariantCulture, options.Backup.FileName, DateTime.UtcNow);
 
+                    if (options.Backup.Archive)
+                    {
+                        fileName += ".agz";
+                    }
+                    else
+                    {
+                        fileName += ".zip";
+                    }
+
                     logger.LogInformation("Uploading archive to {}/{}", options.GoogleStorage.BucketName, fileName);
 
-                    var storageClient = StorageClient.Create();
+                    var storageService = await GetAssetStoreAsync(options);
 
                     using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read))
                     {
-                        storageClient.UploadObject(options.GoogleStorage.BucketName, fileName, "application/x-gzip", fs);
+                        await storageService.UploadAsync(fileName, fs, true);
                     }
-
-                    // Azure Blob Storage
-                    //var connectionString = options.AzureStorage.ConnectionString;
-                    //var blobService = options.AzureStorage.BlobService;
-                    //var container = options.AzureStorage.Container;
-
-                    //logger.LogInformation("Uploading archive to {}{}/{}", blobService, container, fileName);
-
-                    //BlobContainerClient containerClient = new BlobContainerClient(connectionString, container);
-                    //BlobClient blobClient = containerClient.GetBlobClient(fileName);
-                    //blobClient.Upload(file);
 
                     logger.LogInformation("Backup Mongodb {{Uri={}}} completed", options.MongoDb.Uri);
                 }
@@ -91,6 +92,31 @@ namespace MongoBackup
             }
 
             return 0;
+        }
+
+        private static async Task<IAssetStore> GetAssetStoreAsync(Options options)
+        {
+            IAssetStore store;
+
+            if (string.Equals(options.Storage, "GC", StringComparison.OrdinalIgnoreCase))
+            {
+                store = new GoogleCloudAssetStore(new GoogleCloudAssetOptions
+                {
+                    BucketName = options.GoogleStorage.BucketName
+                });
+            }
+            else
+            {
+                store = new AzureBlobAssetStore(new AzureBlobAssetOptions
+                {
+                    ConnectionString = options.AzureStorage.ConnectionString,
+                    ContainerName = options.AzureStorage.Container
+                });
+            }
+
+            await store.InitializeAsync(default);
+
+            return store;
         }
 
         private static Options ConfigureOptions(string[] args, ILogger<Program> logger)
@@ -134,7 +160,18 @@ namespace MongoBackup
 
             connectTimer.Change(ConnectionTimeout, 0);
 
-            process.StartInfo.Arguments = $" --archive=\"{file}\" --gzip --uri=\"{options.MongoDb.Uri}\"";
+            var args = $" --uri=\"{options.MongoDb.Uri}\"";
+
+            if (options.Backup.Archive)
+            {
+                args += " --archive=\"{file}\" --gzip";
+            }
+            else
+            {
+                args += " --out dump";
+            }
+
+            process.StartInfo.Arguments = args;
             process.StartInfo.FileName = options.MongoDb.DumpBinaryPath;
             process.StartInfo.RedirectStandardError = true;
             process.StartInfo.RedirectStandardOutput = true;
@@ -199,6 +236,17 @@ namespace MongoBackup
             else
             {
                 logger.LogInformation("Mongodump succeeded");
+            }
+
+            if (isSucceess && !options.Backup.Archive)
+            {
+                logger.LogInformation("Archive creating.");
+
+                File.Delete(file);
+
+                ZipFile.CreateFromDirectory("dump", file);
+
+                logger.LogInformation("Archive created.");
             }
 
             return isSucceess;

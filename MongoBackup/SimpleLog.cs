@@ -19,7 +19,7 @@ namespace MongoBackup
                 return;
             }
 
-            var line = $"[{GetLogLevelString(logLevel)}]: {categoryName.PadRight(30)}: {formatter(state, exception)}";
+            var line = $"[{GetLogLevelString(logLevel)}]: {categoryName,-30}: {formatter(state, exception)}";
 
             if (exception != null)
             {

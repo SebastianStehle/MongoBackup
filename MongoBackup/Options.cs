@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Url = System.Uri;
 
 namespace MongoBackup
 {
@@ -42,7 +41,7 @@ namespace MongoBackup
         public sealed class AzureStorageOptions
         {
             public string ConnectionString { get; set; } = "DefaultEndpointsProtocol=my-connection-string";
-            public string BlobService { get; set; } = "https://mystorageaccount.blob.core.windows.net/";
+
             public string Container { get; set; } = "my-container";
 
             public void Validate(ICollection<string> errors)
@@ -50,11 +49,6 @@ namespace MongoBackup
                 if (string.IsNullOrWhiteSpace(ConnectionString))
                 {
                     errors.Add("ConnectionString has not been defined");
-                }
-
-                if (string.IsNullOrWhiteSpace(BlobService))
-                {
-                    errors.Add("BlobService has not been defined");
                 }
 
                 if (string.IsNullOrWhiteSpace(Container))
@@ -66,7 +60,9 @@ namespace MongoBackup
 
         public sealed class BackupOptions
         {
-            public string FileName { get; set; } = "backup-{0:yyyy-MM-dd-hh-mm-ss}.agz";
+            public string FileName { get; set; } = "backup-{0:yyyy-MM-dd-hh-mm-ss}";
+
+            public bool Archive { get; set; }
 
             public void Validate(ICollection<string> errors)
             {
@@ -84,6 +80,8 @@ namespace MongoBackup
         public GoogleStorageOptions GoogleStorage { get; } = new GoogleStorageOptions();
 
         public AzureStorageOptions AzureStorage { get; } = new AzureStorageOptions();
+
+        public string Storage { get; set; } = "GC";
 
         public ICollection<string> Validate()
         {
@@ -107,6 +105,12 @@ namespace MongoBackup
             if (AzureStorage != null)
             {
                 AzureStorage.Validate(errors);
+            }
+
+            if (string.Equals(Storage, "GC", StringComparison.OrdinalIgnoreCase) && 
+                string.Equals(Storage, "Azure", StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("Either Google Storage or Azure Storage must be configured.");
             }
 
             return errors;
