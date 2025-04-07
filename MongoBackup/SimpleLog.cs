@@ -1,70 +1,62 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
 
-namespace MongoBackup
+namespace MongoBackup;
+
+public sealed class SimpleLog(string categoryName) : ILogger
 {
-    public sealed class SimpleLog : ILogger
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
     {
-        private readonly string categoryName;
-
-        public SimpleLog(string categoryName)
+        if (!IsEnabled(logLevel))
         {
-            this.categoryName = categoryName;
+            return;
         }
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+        var line = $"[{GetLogLevelString(logLevel)}]: {categoryName,-30}: {formatter(state, exception)}";
+
+        if (exception != null)
         {
-            if (!IsEnabled(logLevel))
-            {
-                return;
-            }
-
-            var line = $"[{GetLogLevelString(logLevel)}]: {categoryName,-30}: {formatter(state, exception)}";
-
-            if (exception != null)
-            {
-                line += $" {exception.Message.Replace(Environment.NewLine, "\\n")}";
-            }
-
-            if (logLevel >= LogLevel.Error)
-            {
-                Console.Error.WriteLine(line);
-            }
-            else
-            {
-                Console.Out.WriteLine(line);
-            }
+            line += $" {exception.Message.Replace(Environment.NewLine, "\\n")}";
         }
 
-        private static string GetLogLevelString(LogLevel logLevel)
+        if (logLevel >= LogLevel.Error)
         {
-            switch (logLevel)
-            {
-                case LogLevel.Trace:
-                    return "trce";
-                case LogLevel.Debug:
-                    return "dbug";
-                case LogLevel.Information:
-                    return "info";
-                case LogLevel.Warning:
-                    return "warn";
-                case LogLevel.Error:
-                    return "fail";
-                case LogLevel.Critical:
-                    return "crit";
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(logLevel));
-            }
+            Console.Error.WriteLine(line);
         }
+        else
+        {
+            Console.Out.WriteLine(line);
+        }
+    }
 
-        public bool IsEnabled(LogLevel logLevel)
+    private static string GetLogLevelString(LogLevel logLevel)
+    {
+        switch (logLevel)
         {
-            return true;
+            case LogLevel.Trace:
+                return "trce";
+            case LogLevel.Debug:
+                return "dbug";
+            case LogLevel.Information:
+                return "info";
+            case LogLevel.Warning:
+                return "warn";
+            case LogLevel.Error:
+                return "fail";
+            case LogLevel.Critical:
+                return "crit";
+            default:
+                throw new ArgumentOutOfRangeException(nameof(logLevel));
         }
+    }
 
-        public IDisposable BeginScope<TState>(TState state)
-        {
-            return null;
-        }
+    public bool IsEnabled(LogLevel logLevel)
+    {
+        return true;
+    }
+
+    public IDisposable BeginScope<TState>(TState state)
+    {
+        return null;
     }
 }

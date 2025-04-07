@@ -1,14 +1,13 @@
 ﻿using Microsoft.Extensions.Logging;
 
-namespace MongoBackup
-{
-    public sealed class SimpleLogProvider : ILoggerProvider
-    {
-        public void Dispose() { }
+namespace MongoBackup;
 
-        public ILogger CreateLogger(string categoryName)
-        {
-            return new SimpleLog(categoryName);
-        }
+public sealed class SimpleLogProvider : ILoggerProvider
+{
+    public void Dispose() { }
+
+    public ILogger CreateLogger(string categoryName)
+    {
+        return new SimpleLog(categoryName);
     }
 }

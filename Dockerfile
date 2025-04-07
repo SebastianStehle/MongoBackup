@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/sdk:3.1-buster as builder  
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS builder
  
 WORKDIR /MongoBackup
 
@@ -12,7 +12,7 @@ COPY . .
 
 RUN dotnet publish -c release -o /out/ 
 
-FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-buster-slim
+FROM mcr.microsoft.com/dotnet/aspnet:8.0.0-bookworm-slim
 
 # Install wget
 RUN apt-get update \
@@ -23,11 +23,11 @@ RUN wget -qO - https://www.mongodb.org/static/pgp/server-4.2.asc | apt-key add -
 RUN echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/4.2 main" | tee /etc/apt/sources.list.d/mongodb-org-4.2.list
 
 # Install mongodb binaries
-RUN apt-get update \
+RUN apt-get update --allow-unauthenticated \
  && apt-get install -y mongodb-org-tools
 
 # Set the path to the mongodump
-ENV MongoDB__DumpBinaryPath /usr/bin/mongodump
+ENV MongoDB__DumpBinaryPath=/usr/bin/mongodump
 
 WORKDIR /app/
 
