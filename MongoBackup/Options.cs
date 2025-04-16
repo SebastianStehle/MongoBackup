@@ -62,7 +62,7 @@ public sealed class Options
     {
         public string FileName { get; set; } = "backup-{0:yyyy-MM-dd-hh-mm-ss}";
 
-        public bool Archive { get; set; }
+        public bool Archive { get; set; } = true;
 
         public void Validate(ICollection<string> errors)
         {

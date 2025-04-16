@@ -1,0 +1,16 @@
+# User-specific files
+*.suo
+*.user
+*.vs
+*.log
+*.received.txt
+
+# Build results
+**/bin
+**/build
+**/obj
+**/out
+**/publish
+
+# Test Output
+**/_test-output

@@ -38,9 +38,9 @@ internal class GoogleCloudStorage(string bucketName) : IStorage
         var items = storageClient.ListObjectsAsync(bucketName);
         await foreach (var item in items.WithCancellation(ct))
         {
-            if (item.TimeCreated != null)
+            if (item.TimeCreatedDateTimeOffset != null)
             {
-                result.Add(new StorageObject(item.Name, item.TimeCreated.Value));
+                result.Add(new StorageObject(item.Name, item.TimeCreatedDateTimeOffset.Value.UtcDateTime));
             }
         }
 

@@ -93,19 +93,27 @@ public sealed class Program
                     fileName += ".zip";
                 }
 
-                logger.LogInformation("Uploading archive to {}/{}", options.GoogleStorage.BucketName, fileName);
-
-                using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read))
+                using (var fileStream = new FileStream(file, FileMode.Open, FileAccess.Read))
                 {
-                    await storage.UploadAsync(fileName, fs, default);
+                    if (fileStream.Length == 0)
+                    {
+                        logger.LogCritical("Backup file is empty.");
+                        return 2;
+                    }
+
+                    logger.LogInformation("Uploading archive to {Bucket}/{FileName}, Size: {Size}",
+                        options.GoogleStorage.BucketName,
+                        fileName,
+                        fileStream.Length);
+
+                    await storage.UploadAsync(fileName, fileStream, default);
                 }
 
-                logger.LogInformation("Backup Mongodb {{Uri={}}} completed", options.MongoDb.Uri);
+                logger.LogInformation("Backup Mongodb {{Uri={FileName}}} completed", options.MongoDb.Uri);
             }
             catch (Exception ex)
             {
-                logger.LogCritical(ex, "Backup Mongodb {{Uri={}}} failed", options.MongoDb.Uri);
-
+                logger.LogCritical(ex, "Backup Mongodb {{Uri={FileName}}} failed", options.MongoDb.Uri);
                 return 2;
             }
             finally
@@ -156,7 +164,7 @@ public sealed class Program
 
         if (errors.Count > 0)
         {
-            logger.LogCritical("Options are not valid: {}", string.Join(',', errors));
+            logger.LogCritical("Options are not valid: {Errors}", string.Join(',', errors));
 
             return null;
         }
@@ -185,7 +193,7 @@ public sealed class Program
 
         if (options.Backup.Archive)
         {
-            args += " --archive=\"{file}\" --gzip";
+            args += $" --archive=\"{file}\" --gzip";
         }
         else
         {
@@ -248,11 +256,11 @@ public sealed class Program
 
         if (!processConnected)
         {
-            logger.LogCritical("Mongodump could not establish connection to database within {} ms. Exit code: {}", ConnectionTimeout, exit);
+            logger.LogCritical("Mongodump could not establish connection to database within {Timeout} ms. Exit code: {Code}", ConnectionTimeout, exit);
         }
         else if (!isSucceess)
         {
-            logger.LogCritical("Mongodump failed with exit code {}", exit);
+            logger.LogCritical("Mongodump failed with exit code {Code}", exit);
         }
         else
         {
